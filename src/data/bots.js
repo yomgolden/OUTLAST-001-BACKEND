@@ -1,9 +1,9 @@
 const BOTS = [
-  "BigSapa","GhostOfYaba","BabaFlex","FearWomen",
-  "DanfoKing","AreaFather","SapaGeneral","AbokiSniper",
-  "Chairman","SoftLifeGone","LagosWizard","EkoBandit",
-  "NoGree4Anybody","YahooProtector","IjebuLord","StreetOracle",
-  "MushínKing","AjegunleFather","OldBoy","LastBorn"
+  "BigSapa","Doctor Oyenusi","Maliki","FearWomen",
+  "Evans","AreaFather","SapaGeneral","AbokiSniper",
+  "Chairman","Badoo","gehgeh","EkoBandit",
+  "BabaTunde","SamLarry","Shina Rambo","StreetOracle",
+  "MushínKing","Lawrence Anini","OldBoy","LastBorn"
 ];
 
 module.exports = (count) => {

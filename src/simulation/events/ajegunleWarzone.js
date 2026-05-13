@@ -3,7 +3,7 @@ module.exports = {
 
   name: "Ajegunle Warzone",
 
-  location: "Ajegunle",
+  location: "Ajegunle, Lagos",
 
   danger: "EXTREME",
 
@@ -14,9 +14,9 @@ module.exports = {
   // ======================
 
   intro: [
-    "🔴 AJEGUNLE WARZONE ACTIVE",
-    "AJ City sealed all exits at midnight.",
-    "20 entered. AJ City decides who leaves."
+    "🔴 AJEGUNLE WARZONE IS NOW ACTIVE",
+    "AJ City sealed every exit at midnight. Bridges chained, boats grounded, roads welded shut.",
+    "20 walked in. The streets will choose who gets carried out."
   ],
 
   // ======================
@@ -35,16 +35,16 @@ module.exports = {
   // ======================
 
   atmosphere: [
-    "Ajegunle has been waiting for tonight.",
-    "The water surrounding AJ City cut off every escape route.",
-    "Orile bridge is blocked. Ajeromi is sealed. There is nowhere to go.",
-    "In Ajegunle, even the walls have loyalty.",
-    "AJ City does not produce survivors. It produces legends.",
-    "The lagoon became strangely quiet around midnight.",
-    "Nobody crossed the waterfront without permission tonight.",
-    "A distant fight broke out near Orile bridge.",
-    "The streets of Ajeromi emptied too quickly.",
-    "People locked their gates early in AJ City."
+    "Ajegunle woke up hungry tonight, the kind of hunger that only the lagoon and the streets can satisfy.",
+    "The water around AJ City turned thick and black, swallowing every attempt to cross.",
+    "Orile bridge became a barricade of old tyres, scrap metal and watchful eyes.",
+    "Ajeromi junction carried the smell of burnt rubber from the blocked road.",
+    "Even the usual night-watch dogs went quiet after the first body hit the ground.",
+    "Thick diesel smoke from generators mixed with the stench of the lagoon.",
+    "Compound gates that normally stay half-open slammed shut before the game began.",
+    "The narrow gutters overflowed with the usual sewage and tonight’s fear.",
+    "Every plastic chair outside the shops now had someone sitting like a judge.",
+    "AJ City is not a game. It is the same life people live here every single night."
   ],
 
   // ======================
@@ -52,16 +52,16 @@ module.exports = {
   // ======================
 
   narration: [
-    "The Ajegunle waterfront was completely silent. That was the warning.",
-    "Someone blocked the road near Ajeromi junction before anyone noticed.",
-    "The smell of the lagoon carried something different tonight.",
-    "Old score sheets from Ajegunle do not expire.",
-    "The sound of boats on the water stopped around midnight.",
-    "A generator exploded near the waterfront. Nobody checked.",
-    "The shadows near Orile bridge started moving differently.",
-    "Nobody trusted outsiders in AJ City tonight.",
-    "The lagoon breeze carried voices nobody could identify.",
-    "Every shortcut in Ajegunle belonged to somebody dangerous."
+    "The waterfront fell completely silent — the same silence that comes before a fight everyone knows is coming.",
+    "A broken-down container was pushed across the Ajeromi road and left blocking everything.",
+    "The lagoon breeze tonight carried the usual mix of fish rot and something sharper.",
+    "Old scores in Ajegunle never really go away; they just wait for the right night.",
+    "Boat engines that usually run till morning suddenly stopped one after the other.",
+    "A generator near the water coughed once and died in a shower of sparks.",
+    "Shadows moved slowly along Orile bridge, the way people move when they have already chosen their target.",
+    "Any new face in the zone was noticed before they took ten steps.",
+    "Low voices carried over the water that sounded too calm to be good news.",
+    "Every alley already had its usual boys standing in the usual spots."
   ],
 
   // ======================
@@ -69,38 +69,48 @@ module.exports = {
   // ======================
 
   eliminations: [
-    "{killer} chased {victim} from Ajeromi all the way to the waterfront. There was nowhere left to run.",
-    "{victim} thought the crowd near Orile would protect them. {killer} knew the crowd.",
-    "In AJ City, {killer} called in a favor. {victim} paid for it.",
-    "{victim} tried to cross the waterfront. {killer} was faster on the water.",
-    "The alley behind Ajegunle market has seen worse. Now it has seen {victim}.",
-    "{killer} grew up in Ajegunle. Every shortcut. Every shadow. {victim} had no chance.",
-    "{victim} made it to Ajeromi bridge. {killer} had been waiting there since Round 1.",
-    "Nobody helped {victim} near the Ajegunle waterfront. AJ City keeps its own counsel.",
-    "{killer} used {tool} near the waterfront to eliminate {victim}.",
-    "{victim} trusted the wrong boat route in AJ City.",
-    "{killer} trapped {victim} between the lagoon and the streets.",
-    "The streets near Orile closed around {victim}. {killer} finished the rest.",
-    "{victim} disappeared into an Ajegunle alley and never returned.",
-    "{killer} understood AJ City better than {victim} ever could.",
-    "{victim} picked the wrong side of the waterfront tonight."
+    "{victim} rushed in to separate the fight at the market. The boys turned on him and separated him from his soul instead.",
+    "A single cutlass flash under the Orile streetlight dropped {victim} before he could scream.",
+    "{killer} pushed {victim} into the open gutter. The sewage did the rest in under a minute.",
+    "One phone call brought the boys. They dragged {victim} behind the danfo and ended it quietly.",
+    "{victim} tried swimming the channel at low tide. {killer} held his head under until the bubbles stopped.",
+    "The fish stall owner watched as {killer} cracked {victim}’s skull with an iron rod and rolled the body into the lagoon.",
+    "{victim} begged at the water’s edge. {killer} tied a rope to his leg and let the tide pull him under.",
+    "The generator noise covered the pipe that smashed {victim}’s head behind the mechanic shed.",
+    "{killer} shouted ‘police!’ to lure {victim} into the container yard, then locked it and set it on fire.",
+    "The okada {victim} flagged down drove him straight to {killer}, who slit his throat on the spot.",
+    "Two burning tyres rolled down the slope and trapped {victim} in the smoke until he stopped moving.",
+    "The footpath edge gave way. One push from {killer} and the lagoon took {victim} for good.",
+    "{victim} hid in the empty barbershop. The straight razor was already waiting for him.",
+    "{killer} stood up from the plastic chair and brought it down on {victim}’s head until it broke.",
+    "{victim} chose the wrong side of the rising tide. {killer} waited on the bank until the water finished the job."
   ],
 
   // ======================
-  // FUNNY DEATHS
+  // FUNNY DEATHS (now 20)
   // ======================
 
   funny: [
-    "{victim} tried to reason with AJ City logic. AJ City disagreed.",
-    "{victim} asked for directions in Ajegunle. The directions were wrong on purpose.",
-    "{victim} thought being loud would protect them in Ajegunle. Incorrect.",
-    "{victim} slipped into the lagoon edge near the waterfront. The lagoon kept them briefly.",
-    "{victim} made a deal in Ajegunle and forgot the most important rule: honor the deal.",
-    "{victim} shouted too confidently near Orile bridge.",
-    "{victim} trusted free transport in AJ City at midnight.",
-    "{victim} thought the crowd was cheering for them. It was not.",
-    "{victim} tried to hide beside a boat that was already occupied.",
-    "{victim} underestimated how fast rumors move in Ajegunle."
+    "{victim} tried bribing the boys with fake dollars. They took the money and still used the cutlass.",
+    "Asking for the safest route near Orile got {victim} a polite smile and a one-way swim.",
+    "Yelling ‘I know the chairman!’ brought the chairman’s boys with a machete instead of help.",
+    "Slipping in the gutter everyone warns about sent {victim} straight under a moving danfo.",
+    "The ‘peace handshake’ in the warzone left {victim} holding a blade wound instead of a deal.",
+    "One last selfie near the bridge lit {victim} up perfectly for the shooter.",
+    "The free midnight okada ride ended exactly where {killer} was waiting.",
+    "The loud cheering at the junction was the usual send-off party for {victim}.",
+    "Crawling into the old canoe turned out to be climbing into a shooting platform.",
+    "Believing the rumour that ‘this side is calm’ got {victim} proven wrong by two boys on one bike.",
+    "{victim} tried hiding behind a stack of empty jerrycans. They all had holes.",
+    "Flashing a big phone to call for help only made {victim} an easier target in the dark.",
+    "The ‘I get connection’ shout echoed so loud the wrong connection answered with iron.",
+    "{victim} stopped to argue with the area boys. The argument ended with a tyre around his neck.",
+    "Trusting the boatman who said ‘I go help you escape’ got {victim} dropped in the deepest part.",
+    "Wearing the wrong colour shirt near Orile made {victim} the night’s mistaken target.",
+    "{victim} tried recording the fight for evidence. The flash gave away his exact spot.",
+    "The free pure water sachet someone offered {victim} was laced with something stronger than water.",
+    "Running towards the cheering crowd thinking it was safety turned out to be their funeral parade.",
+    "{victim} hid his money in his shoe. The boys found it, laughed, and still took his life."
   ],
 
   // ======================
@@ -108,15 +118,15 @@ module.exports = {
   // ======================
 
   survival: [
-    "{victim} knew a boat man near the Ajegunle waterfront. Old connection, new escape.",
-    "{victim} went deep into Ajeromi and stayed quiet until the danger passed.",
-    "{victim} survived by pretending to be from AJ City. Convincing accent.",
-    "{victim} hid in a compound near Orile that nobody else knew about.",
-    "{victim} moved through the waterfront routes only locals know. Every round.",
-    "{victim} escaped using an abandoned fishing route near the lagoon.",
-    "{victim} survived by staying invisible in the waterfront crowd.",
-    "{victim} blended into the chaos near Ajeromi unnoticed.",
-    "{victim} hid inside a locked mechanic yard until sunrise.",
-    "{victim} survived another round by respecting AJ City rules."
+    "The old fisherman who still owed {victim} a favour paddled them across the back channel in the dark.",
+    "Staying completely still in the deepest part of Ajeromi let {victim} blend into the night until the round passed.",
+    "Walking with the exact local slouch and not making eye contact carried {victim} past three groups of boys.",
+    "The small mechanic yard behind Orile that even the touts had forgotten became {victim}’s hiding place.",
+    "Following the narrow footpaths along the water that only people born here still use got {victim} through safely.",
+    "Clinging to a half-sunk tyre and drifting with the current while everyone watched the bridges kept {victim} alive.",
+    "Becoming just another shadow among the usual waterfront crowd meant nobody looked twice at {victim}.",
+    "The thick black smoke pouring from a broken generator swallowed {victim} whole until the danger moved on.",
+    "Locking the door of an old shipping container from inside turned {victim} into a ghost until sunrise.",
+    "Knowing exactly which corners to avoid and which boys to nod at kept {victim} breathing for one more round."
   ]
 };

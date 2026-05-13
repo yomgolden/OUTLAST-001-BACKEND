@@ -1,168 +1,471 @@
 const router = require("express").Router();
+
 const User = require("../models/User");
 const memory = require("../data/memory");
 const createBots = require("../data/bots");
-const randomTheme = require("../data/themes");
-const { generateMatch } = require("../simulation/engine");
+
+const { getEvent, getFeatured } = require("../data/eventRegistry");
+
+const {
+  generateMatch,
+  goldForPlacement,
+  XP_PER_MATCH,
+  computeLevel
+} = require("../simulation/engine");
 
 const MAX = 20;
 const COUNTDOWN = 60000;
 
+// ======================================================
+// START EVENT
+// ======================================================
+
 const startEvent = async (eventId) => {
   const event = memory[eventId];
+
   if (!event || event.status !== "WAITING") return;
 
+  // Fill remaining slots with bots
   const needed = MAX - event.players.length;
-  if (needed > 0) event.players.push(...createBots(needed));
+
+  if (needed > 0) {
+    event.players.push(...createBots(needed));
+  }
 
   event.status = "STARTED";
 
-  const { feed, survivors } = generateMatch(event.players);
+  // Get event config
+  const eventConfig = getEvent(event.eventType);
+
+  // Generate full simulation
+  const { feed, placements, winner } = generateMatch(
+    event.players,
+    eventConfig
+  );
+
   event.feed = feed;
 
-  const rewards = { 1: 250, 2: 150, 3: 100 };
-  event.finalResults = survivors.map((p, i) => ({
-    placement: i + 1,
-    username: p.username,
-    userId: p.userId,
-    bot: p.bot,
-    goldEarned: rewards[i + 1] || 20,
-    xpEarned: Math.max(20, 120 - (i + 1) * 4)
+  // ======================================================
+  // FINAL RESULTS
+  // ======================================================
+
+  event.finalResults = placements.map((player, index) => ({
+    placement: index + 1,
+    username: player.username,
+    userId: player.userId,
+    bot: player.bot,
+    goldEarned: goldForPlacement(index + 1),
+    xpEarned: XP_PER_MATCH
   }));
 
   event.status = "ENDED";
-  console.log("EVENT ENDED:", eventId, "| FEED:", feed.length, "items");
 
-  for (const r of event.finalResults) {
-    if (!r.bot && r.userId && r.userId.length === 24) {
+  console.log(
+    "EVENT ENDED:",
+    eventId,
+    "| WINNER:",
+    winner?.username,
+    "| FEED:",
+    feed.length
+  );
+
+  // ======================================================
+  // SAVE PLAYER REWARDS
+  // ======================================================
+
+  for (const result of event.finalResults) {
+    if (
+      !result.bot &&
+      result.userId &&
+      result.userId.length === 24
+    ) {
       try {
-        const user = await User.findById(r.userId);
+        const user = await User.findById(result.userId);
+
         if (user) {
-          user.gold += r.goldEarned;
-          user.xp += r.xpEarned;
+          user.gold += result.goldEarned;
+
+          user.xp += result.xpEarned;
+
           user.matches += 1;
-          if (r.placement === 1) user.wins += 1;
-          if (user.xp >= user.level * 500) user.level += 1;
+
+          if (result.placement === 1) {
+            user.wins += 1;
+          }
+
+          // Recalculate level
+          user.level = computeLevel(user.xp);
+
           await user.save();
         }
-      } catch (e) {
-        console.error("REWARD ERROR:", e.message);
+      } catch (err) {
+        console.error("REWARD ERROR:", err.message);
       }
     }
   }
 
-  setTimeout(() => { delete memory[eventId]; }, 600000);
+  // Auto cleanup after 10 mins
+  setTimeout(() => {
+    delete memory[eventId];
+  }, 600000);
 };
+
+// ======================================================
+// FEATURED EVENTS
+// ======================================================
+
+router.get("/featured", (req, res) => {
+  try {
+    const featured = getFeatured();
+
+    const now = Date.now();
+
+    const result = featured.map((eventConfig) => {
+      const activeLobbies = Object.values(memory).filter(
+        (lobby) =>
+          lobby.eventType === eventConfig.id &&
+          lobby.status === "WAITING"
+      );
+
+      // Best lobby for auto-join
+      const bestLobby =
+        activeLobbies.sort(
+          (a, b) => b.players.length - a.players.length
+        )[0] || null;
+
+      return {
+        id: eventConfig.id,
+
+        name: eventConfig.name,
+
+        location: eventConfig.location,
+
+        danger: eventConfig.danger,
+
+        tagline: eventConfig.tagline,
+
+        activePlayers: activeLobbies.reduce(
+          (sum, lobby) => sum + lobby.players.length,
+          0
+        ),
+
+        activeLobbies: activeLobbies.length,
+
+        bestLobby: bestLobby
+          ? {
+              eventId: bestLobby.eventId,
+
+              playerCount: bestLobby.players.length,
+
+              countdown: Math.max(
+                0,
+                Math.floor((bestLobby.startsAt - now) / 1000)
+              )
+            }
+          : null
+      };
+    });
+
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ======================================================
+// GET ALL ACTIVE LOBBIES
+// ======================================================
 
 router.get("/", (req, res) => {
   try {
     const now = Date.now();
+
     const list = Object.values(memory)
-      .filter(e => e.status === "WAITING" || e.status === "STARTED")
-      .map(e => ({
-        eventId: e.eventId,
-        theme: e.theme,
-        location: e.location,
-        danger: e.danger,
-        host: e.host,
-        playerCount: e.players.length,
+      .filter(
+        (event) =>
+          event.status === "WAITING" ||
+          event.status === "STARTED"
+      )
+      .map((event) => ({
+        eventId: event.eventId,
+
+        eventType: event.eventType,
+
+        theme: event.theme,
+
+        location: event.location,
+
+        danger: event.danger,
+
+        host: event.host,
+
+        playerCount: event.players.length,
+
         maxPlayers: MAX,
-        countdown: Math.max(0, Math.floor((e.startsAt - now) / 1000)),
-        status: e.status
+
+        countdown: Math.max(
+          0,
+          Math.floor((event.startsAt - now) / 1000)
+        ),
+
+        status: event.status
       }));
+
     res.json(list);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
+// ======================================================
+// CREATE EVENT / AUTO JOIN
+// ======================================================
+
 router.post("/create", async (req, res) => {
   try {
-    const { userId, username } = req.body;
-    if (!userId) return res.status(400).json({ error: "userId required" });
+    const { userId, username, eventType } = req.body;
 
-    const waiting = Object.values(memory).filter(e => e.status === "WAITING");
-    if (waiting.length >= 5) return res.status(400).json({ error: "Too many active events" });
+    if (!userId) {
+      return res.status(400).json({
+        error: "userId required"
+      });
+    }
 
-    const theme = randomTheme();
-    const eventId = "event_" + Date.now();
+    const eventConfig = getEvent(
+      eventType || "mushin_nightmare"
+    );
+
+    if (!eventConfig) {
+      return res.status(400).json({
+        error: "Invalid event type"
+      });
+    }
+
+    // ======================================================
+    // AUTO JOIN EXISTING LOBBY
+    // ======================================================
+
+    const existingLobbies = Object.values(memory).filter(
+      (event) =>
+        event.eventType === eventConfig.id &&
+        event.status === "WAITING"
+    );
+
+    if (existingLobbies.length > 0) {
+      const lobby = existingLobbies.sort(
+        (a, b) => b.players.length - a.players.length
+      )[0];
+
+      // Prevent duplicate joins
+      if (
+        !lobby.players.find(
+          (player) => player.userId === userId
+        )
+      ) {
+        lobby.players.push({
+          userId,
+          username: username || "Survivor",
+          bot: false,
+          alive: true
+        });
+      }
+
+      // Auto start if full
+      if (lobby.players.length >= MAX) {
+        startEvent(lobby.eventId);
+      }
+
+      console.log(
+        "AUTO-JOINED EXISTING LOBBY:",
+        lobby.eventId
+      );
+
+      return res.json(lobby);
+    }
+
+    // ======================================================
+    // CREATE NEW LOBBY
+    // ======================================================
+
+    const eventId = `event_${Date.now()}_${Math.floor(
+      Math.random() * 9999
+    )}`;
 
     const event = {
       eventId,
-      theme: theme.name,
-      location: theme.location,
-      danger: theme.danger,
+
+      eventType: eventConfig.id,
+
+      theme: eventConfig.name,
+
+      location: eventConfig.location,
+
+      danger: eventConfig.danger,
+
       host: username || "Survivor",
+
       status: "WAITING",
-      players: [{ userId, username: username || "Survivor", bot: false, alive: true }],
+
+      players: [
+        {
+          userId,
+          username: username || "Survivor",
+          bot: false,
+          alive: true
+        }
+      ],
+
       startsAt: Date.now() + COUNTDOWN,
+
       feed: [],
+
       finalResults: null
     };
 
     memory[eventId] = event;
-    setTimeout(() => startEvent(eventId), COUNTDOWN);
 
-    console.log("EVENT CREATED:", eventId);
+    setTimeout(() => {
+      startEvent(eventId);
+    }, COUNTDOWN);
+
+    console.log(
+      "NEW LOBBY CREATED:",
+      eventId,
+      "| TYPE:",
+      eventConfig.id
+    );
+
     res.json(event);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({
+      error: err.message
+    });
   }
 });
+
+// ======================================================
+// JOIN LOBBY
+// ======================================================
 
 router.post("/join", async (req, res) => {
   try {
     const { eventId, userId, username } = req.body;
-    const event = memory[eventId];
-    if (!event) return res.status(404).json({ error: "Event not found" });
-    if (event.status !== "WAITING") return res.status(400).json({ error: "Already started" });
 
-    if (!event.players.find(p => p.userId === userId)) {
-      event.players.push({ userId, username: username || "Survivor", bot: false, alive: true });
+    const event = memory[eventId];
+
+    if (!event) {
+      return res.status(404).json({
+        error: "Lobby not found"
+      });
     }
 
-    if (event.players.length >= MAX) startEvent(eventId);
+    if (event.status !== "WAITING") {
+      return res.status(400).json({
+        error: "Already started"
+      });
+    }
+
+    // Prevent duplicate joins
+    if (
+      !event.players.find(
+        (player) => player.userId === userId
+      )
+    ) {
+      event.players.push({
+        userId,
+        username: username || "Survivor",
+        bot: false,
+        alive: true
+      });
+    }
+
+    // Auto start when full
+    if (event.players.length >= MAX) {
+      startEvent(eventId);
+    }
 
     res.json(event);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({
+      error: err.message
+    });
   }
 });
+
+// ======================================================
+// EVENT STATUS
+// ======================================================
 
 router.get("/:eventId/status", (req, res) => {
   try {
     const event = memory[req.params.eventId];
-    if (!event) return res.status(404).json({ error: "Event not found" });
+
+    if (!event) {
+      return res.status(404).json({
+        error: "Event not found"
+      });
+    }
 
     res.json({
       eventId: event.eventId,
+
+      eventType: event.eventType,
+
       theme: event.theme,
+
       location: event.location,
+
       danger: event.danger,
+
       status: event.status,
-      countdown: Math.max(0, Math.floor((event.startsAt - Date.now()) / 1000)),
+
+      countdown: Math.max(
+        0,
+        Math.floor((event.startsAt - Date.now()) / 1000)
+      ),
+
       players: event.players,
+
       playerCount: event.players.length,
+
       maxPlayers: MAX
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({
+      error: err.message
+    });
   }
 });
+
+// ======================================================
+// EVENT FEED
+// ======================================================
 
 router.get("/:eventId/feed", (req, res) => {
   try {
     const event = memory[req.params.eventId];
-    if (!event) return res.status(404).json({ error: "Event not found" });
+
+    if (!event) {
+      return res.status(404).json({
+        error: "Event not found"
+      });
+    }
 
     res.json({
       status: event.status,
+
       feed: event.feed || [],
+
       finalResults: event.finalResults || null,
-      aliveCount: event.players.filter(p => p.alive).length
+
+      aliveCount: event.players.filter(
+        (player) => player.alive
+      ).length
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({
+      error: err.message
+    });
   }
 });
 

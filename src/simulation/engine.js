@@ -1,9 +1,13 @@
-const TOOLS = ["Knife", "Charm", "Juju", "Smoke", "Sharp mouth", "Silence", "Connections"];
+const TOOLS = [
+  "Knife", "Charm", "Juju", "Smoke",
+  "Sharp mouth", "Silence", "Connections"
+];
 
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const fill = (t, d) => t.replace(/\{(\w+)\}/g, (_, k) => d[k] || k);
 
 const xpForLevel = (level) => level * level * 50;
+
 const computeLevel = (totalXP) => {
   let level = 1;
   while (totalXP >= xpForLevel(level + 1)) level++;
@@ -23,7 +27,7 @@ const generateMatch = (players, eventConfig) => {
 
   const storyRounds = [];
 
-  // INTRO as round 0
+  // INTRO
   if (eventConfig.intro?.length) {
     storyRounds.push({
       round: 0,
@@ -43,10 +47,7 @@ const generateMatch = (players, eventConfig) => {
 
     const roundEliminated = [];
     const roundEvents = [];
-
-    // Pick narration (1st person)
     const narration = pick(eventConfig.narration);
-
     const eventCount = Math.floor(Math.random() * 4) + 3;
 
     for (let i = 0; i < eventCount; i++) {
@@ -55,7 +56,7 @@ const generateMatch = (players, eventConfig) => {
       const living = alive.filter(p => p.alive);
       if (living.length < 2) break;
 
-      // Inject world event randomly between kills
+      // Inject world event between kills
       if (
         eventConfig.worldEvents?.length &&
         Math.random() < worldEventChance &&
@@ -86,7 +87,11 @@ const generateMatch = (players, eventConfig) => {
         continue;
       }
 
-      victim.alive = false;
+      // Mark victim dead — immutable update
+      alive = alive.map(p =>
+        p.userId === victim.userId ? { ...p, alive: false } : p
+      );
+
       roundEliminated.push(victim.username);
       eliminationOrder.push(victim);
 
@@ -112,7 +117,7 @@ const generateMatch = (players, eventConfig) => {
       }
     }
 
-    // Trailing world event at end of round
+    // Trailing world event at round end
     if (
       eventConfig.worldEvents?.length &&
       Math.random() < worldEventChance
@@ -123,6 +128,7 @@ const generateMatch = (players, eventConfig) => {
       });
     }
 
+    // Filter to living players
     alive = alive.filter(p => p.alive);
 
     storyRounds.push({
@@ -135,24 +141,27 @@ const generateMatch = (players, eventConfig) => {
     });
   }
 
-  // Final survivors + placements
-  const placements = [...alive, ...[...eliminationOrder].reverse()];
+  // Fixed placement: winner first, then other survivors, then reverse elimination order
+  const winner = alive[0] || eliminationOrder[eliminationOrder.length - 1];
+  const otherSurvivors = alive.filter(p => p.userId !== winner?.userId);
+  const placements = [
+    winner,
+    ...otherSurvivors,
+    ...[...eliminationOrder].reverse()
+  ].filter(Boolean);
 
-  // Match end round
+  // Match end
   storyRounds.push({
     round: rounds + 1,
     type: "MATCH_END",
     narration: null,
-    events: [{
-      type: "MATCH_END",
-      message: "MATCH COMPLETE"
-    }],
+    events: [{ type: "MATCH_END", message: "MATCH COMPLETE" }],
     eliminated: [],
     aliveCount: alive.length,
-    winner: alive[0]?.username || placements[0]?.username
+    winner: winner?.username || null
   });
 
-  return { storyRounds, placements, winner: alive[0] || placements[0] };
+  return { storyRounds, placements, winner };
 };
 
 const goldForPlacement = (placement) => {
@@ -166,4 +175,10 @@ const goldForPlacement = (placement) => {
 
 const XP_PER_MATCH = 10;
 
-module.exports = { generateMatch, goldForPlacement, XP_PER_MATCH, xpForLevel, computeLevel };
+module.exports = {
+  generateMatch,
+  goldForPlacement,
+  XP_PER_MATCH,
+  xpForLevel,
+  computeLevel
+};

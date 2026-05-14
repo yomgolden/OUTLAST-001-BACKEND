@@ -1,6 +1,7 @@
 const mushinNightmare = require("../simulation/events/mushinNightmare");
 const blackoutYaba = require("../simulation/events/blackoutYaba");
 const ajegunleWarzone = require("../simulation/events/ajegunleWarzone");
+const evilForest = require("../simulation/events/evilForest");
 
 // ======================================================
 // EVENT REGISTRY
@@ -11,7 +12,9 @@ const REGISTRY = {
 
   blackout_yaba: blackoutYaba,
 
-  ajegunle_warzone: ajegunleWarzone
+  ajegunle_warzone: ajegunleWarzone,
+  
+  evil_forest: evilForest
 };
 
 // ======================================================
@@ -21,7 +24,8 @@ const REGISTRY = {
 const FEATURED = [
   mushinNightmare,
   blackoutYaba,
-  ajegunleWarzone
+  ajegunleWarzone,
+  evilforest
 ];
 
 // ======================================================

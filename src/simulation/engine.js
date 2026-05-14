@@ -1,311 +1,169 @@
-const TOOLS = [
-  "Knife",
-  "Charm",
-  "Juju",
-  "Smoke",
-  "Sharp mouth",
-  "Silence",
-  "Connections"
-];
+const TOOLS = ["Knife", "Charm", "Juju", "Smoke", "Sharp mouth", "Silence", "Connections"];
 
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
-
-const fill = (template, data) =>
-  template.replace(/\{(\w+)\}/g, (_, k) => data[k] || k);
-
-// ======================
-// XP + LEVEL SYSTEM
-// ======================
+const fill = (t, d) => t.replace(/\{(\w+)\}/g, (_, k) => d[k] || k);
 
 const xpForLevel = (level) => level * level * 50;
-
 const computeLevel = (totalXP) => {
   let level = 1;
-
-  while (totalXP >= xpForLevel(level + 1)) {
-    level++;
-  }
-
+  while (totalXP >= xpForLevel(level + 1)) level++;
   return level;
 };
 
-// ======================
-// MATCH ENGINE
-// ======================
-
 const generateMatch = (players, eventConfig) => {
-  const feed = [];
   const eliminationOrder = [];
-
-  let alive = players.map((p) => ({
-    ...p,
-    alive: true
-  }));
-
-  // ======================
-  // EVENT PACING
-  // ======================
+  let alive = players.map(p => ({ ...p, alive: true }));
 
   const minRounds = eventConfig.roundConfig?.min || 5;
   const maxRounds = eventConfig.roundConfig?.max || 7;
+  const rounds = Math.floor(Math.random() * (maxRounds - minRounds + 1)) + minRounds;
+  const survivalChance = eventConfig.roundConfig?.survivalChance || 0.12;
+  const funnyChance = eventConfig.roundConfig?.funnyChance || 0.28;
+  const worldEventChance = eventConfig.roundConfig?.worldEventChance || 0.35;
 
-  const rounds =
-    Math.floor(Math.random() * (maxRounds - minRounds + 1)) +
-    minRounds;
+  const storyRounds = [];
 
-  const survivalChance =
-    eventConfig.roundConfig?.survivalChance || 0.12;
-
-  const funnyChance =
-    eventConfig.roundConfig?.funnyChance || 0.28;
-
-  // ======================
-  // INTRO
-  // ======================
-
+  // INTRO as round 0
   if (eventConfig.intro?.length) {
-    eventConfig.intro.forEach((line) => {
-      feed.push({
+    storyRounds.push({
+      round: 0,
+      type: "INTRO",
+      narration: null,
+      events: eventConfig.intro.map(line => ({
         type: "INTRO",
-        aliveCount: alive.length,
         message: line
-      });
+      })),
+      eliminated: [],
+      aliveCount: alive.length
     });
   }
 
-  // ======================
-  // MAIN MATCH LOOP
-  // ======================
-
   for (let round = 1; round <= rounds; round++) {
-    if (alive.length <= 1) break;
+    if (alive.length <= 3) break;
 
-    feed.push({
-      type: "ROUND_START",
-      round,
-      aliveCount: alive.length,
-      message: `— ROUND ${round} — ${alive.length} SURVIVORS REMAIN —`
-    });
+    const roundEliminated = [];
+    const roundEvents = [];
 
-    // Narration
-    feed.push({
-      type: "NARRATOR",
-      round,
-      aliveCount: alive.length,
-      message: pick(eventConfig.narration)
-    });
+    // Pick narration (1st person)
+    const narration = pick(eventConfig.narration);
 
     const eventCount = Math.floor(Math.random() * 4) + 3;
 
-    const roundEliminated = [];
-
     for (let i = 0; i < eventCount; i++) {
-      if (alive.length <= 1) break;
+      if (alive.length <= 3) break;
 
-      const living = alive.filter((p) => p.alive);
-
+      const living = alive.filter(p => p.alive);
       if (living.length < 2) break;
 
+      // Inject world event randomly between kills
+      if (
+        eventConfig.worldEvents?.length &&
+        Math.random() < worldEventChance &&
+        roundEvents.length > 0
+      ) {
+        roundEvents.push({
+          type: "WORLD_EVENT",
+          message: pick(eventConfig.worldEvents)
+        });
+      }
+
       const victim = pick(living);
+      if (!victim) continue;
 
-      const killers = living.filter(
-        (p) => p.userId !== victim.userId
-      );
-
+      const killers = living.filter(p => p.userId !== victim.userId);
       if (!killers.length) continue;
-
       const killer = pick(killers);
-
+      const tool = pick(TOOLS);
       const roll = Math.random();
 
-      // ======================
-      // SURVIVAL EVENT
-      // ======================
-
       if (roll < survivalChance) {
-        feed.push({
+        roundEvents.push({
           type: "SURVIVAL",
-          round,
-          aliveCount: living.length,
-          message: fill(
-            pick(eventConfig.survival),
-            {
-              victim: victim.username
-            }
-          )
+          message: fill(pick(eventConfig.survival), {
+            victim: victim.username
+          })
         });
-
         continue;
       }
 
-      // ======================
-      // ELIMINATION
-      // ======================
-
       victim.alive = false;
-
-      roundEliminated.push(victim);
-
+      roundEliminated.push(victim.username);
       eliminationOrder.push(victim);
 
-      // ======================
-      // FUNNY DEATH
-      // ======================
-
-      if (roll < survivalChance + funnyChance) {
-        feed.push({
+      if (roll < funnyChance) {
+        roundEvents.push({
           type: "FUNNY_DEATH",
-          round,
-          aliveCount: living.length - 1,
-          message: fill(
-            pick(eventConfig.funny),
-            {
-              victim: victim.username
-            }
-          )
+          victim: victim.username,
+          message: fill(pick(eventConfig.funny), {
+            victim: victim.username
+          })
         });
-      }
-
-      // ======================
-      // NORMAL ELIMINATION
-      // ======================
-
-      else {
-        feed.push({
+      } else {
+        roundEvents.push({
           type: "ELIMINATION",
-          round,
-          aliveCount: living.length - 1,
-          message: fill(
-            pick(eventConfig.eliminations),
-            {
-              victim: victim.username,
-              killer: killer.username,
-              tool: pick(TOOLS)
-            }
-          )
+          killer: killer.username,
+          victim: victim.username,
+          message: fill(pick(eventConfig.eliminations), {
+            victim: victim.username,
+            killer: killer.username,
+            tool
+          })
         });
       }
     }
 
-    // Remove dead players
-    alive = alive.filter((p) => p.alive);
-
-    // ======================
-    // ROUND END
-    // ======================
-
-    feed.push({
-      type: "ROUND_END",
-      round,
-      aliveCount: alive.length,
-      message: `${roundEliminated.length} eliminated. ${alive.length} remain.`
-    });
-
-    // ======================
-    // ATMOSPHERE
-    // ======================
-
+    // Trailing world event at end of round
     if (
-      round < rounds &&
-      alive.length > 1 &&
-      eventConfig.atmosphere?.length
+      eventConfig.worldEvents?.length &&
+      Math.random() < worldEventChance
     ) {
-      feed.push({
-        type: "ATMOSPHERE",
-        round,
-        aliveCount: alive.length,
-        message: pick(eventConfig.atmosphere)
+      roundEvents.push({
+        type: "WORLD_EVENT",
+        message: pick(eventConfig.worldEvents)
       });
     }
-  }
 
-  // ======================
-  // FORCE FINAL WINNER
-  // ======================
+    alive = alive.filter(p => p.alive);
 
-  while (alive.length > 1) {
-    const victim = pick(alive);
-
-    victim.alive = false;
-
-    eliminationOrder.push(victim);
-
-    feed.push({
-      type: "FINAL_ELIMINATION",
-      aliveCount: alive.length - 1,
-      message: fill(
-        pick(eventConfig.eliminations),
-        {
-          victim: victim.username,
-          killer: "The night",
-          tool: pick(TOOLS)
-        }
-      )
+    storyRounds.push({
+      round,
+      type: "ROUND",
+      narration,
+      events: roundEvents,
+      eliminated: roundEliminated,
+      aliveCount: alive.length
     });
-
-    alive = alive.filter((p) => p.alive);
   }
 
-  // ======================
-  // FINAL PLACEMENTS
-  // ======================
+  // Final survivors + placements
+  const placements = [...alive, ...[...eliminationOrder].reverse()];
 
-  const placements = [
-    ...alive,
-    ...[...eliminationOrder].reverse()
-  ];
-
-  const winner = placements[0] || null;
-
-  // ======================
-  // MATCH END
-  // ======================
-
-  feed.push({
+  // Match end round
+  storyRounds.push({
+    round: rounds + 1,
     type: "MATCH_END",
+    narration: null,
+    events: [{
+      type: "MATCH_END",
+      message: "MATCH COMPLETE"
+    }],
+    eliminated: [],
     aliveCount: alive.length,
-    message: "— MATCH COMPLETE —"
+    winner: alive[0]?.username || placements[0]?.username
   });
 
-  return {
-    feed,
-    placements,
-    winner
-  };
+  return { storyRounds, placements, winner: alive[0] || placements[0] };
 };
-
-// ======================
-// GOLD REWARDS
-// ======================
 
 const goldForPlacement = (placement) => {
   if (placement === 1) return 250;
-
   if (placement === 2) return 150;
-
   if (placement === 3) return 100;
-
   if (placement <= 5) return 50;
-
   if (placement <= 10) return 30;
-
   return 20;
 };
 
-// ======================
-// XP REWARD
-// ======================
-
 const XP_PER_MATCH = 10;
 
-// ======================
-// EXPORTS
-// ======================
-
-module.exports = {
-  generateMatch,
-  goldForPlacement,
-  XP_PER_MATCH,
-  xpForLevel,
-  computeLevel
-};
+module.exports = { generateMatch, goldForPlacement, XP_PER_MATCH, xpForLevel, computeLevel };

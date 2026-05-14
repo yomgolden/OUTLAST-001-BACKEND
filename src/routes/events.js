@@ -1,184 +1,335 @@
-const TOOLS = [
-  "Knife", "Charm", "Juju", "Smoke",
-  "Sharp mouth", "Silence", "Connections"
-];
+const router = require("express").Router();
 
-const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
-const fill = (t, d) => t.replace(/\{(\w+)\}/g, (_, k) => d[k] || k);
+const User = require("../models/User");
+const memory = require("../data/memory");
+const createBots = require("../data/bots");
 
-const xpForLevel = (level) => level * level * 50;
+const {
+  getEvent,
+  getFeatured
+} = require("../data/eventRegistry");
 
-const computeLevel = (totalXP) => {
-  let level = 1;
-  while (totalXP >= xpForLevel(level + 1)) level++;
-  return level;
-};
-
-const generateMatch = (players, eventConfig) => {
-  const eliminationOrder = [];
-  let alive = players.map(p => ({ ...p, alive: true }));
-
-  const minRounds = eventConfig.roundConfig?.min || 5;
-  const maxRounds = eventConfig.roundConfig?.max || 7;
-  const rounds = Math.floor(Math.random() * (maxRounds - minRounds + 1)) + minRounds;
-  const survivalChance = eventConfig.roundConfig?.survivalChance || 0.12;
-  const funnyChance = eventConfig.roundConfig?.funnyChance || 0.28;
-  const worldEventChance = eventConfig.roundConfig?.worldEventChance || 0.35;
-
-  const storyRounds = [];
-
-  // INTRO
-  if (eventConfig.intro?.length) {
-    storyRounds.push({
-      round: 0,
-      type: "INTRO",
-      narration: null,
-      events: eventConfig.intro.map(line => ({
-        type: "INTRO",
-        message: line
-      })),
-      eliminated: [],
-      aliveCount: alive.length
-    });
-  }
-
-  for (let round = 1; round <= rounds; round++) {
-    if (alive.length <= 3) break;
-
-    const roundEliminated = [];
-    const roundEvents = [];
-    const narration = pick(eventConfig.narration);
-    const eventCount = Math.floor(Math.random() * 4) + 3;
-
-    for (let i = 0; i < eventCount; i++) {
-      if (alive.length <= 3) break;
-
-      const living = alive.filter(p => p.alive);
-      if (living.length < 2) break;
-
-      // Inject world event between kills
-      if (
-        eventConfig.worldEvents?.length &&
-        Math.random() < worldEventChance &&
-        roundEvents.length > 0
-      ) {
-        roundEvents.push({
-          type: "WORLD_EVENT",
-          message: pick(eventConfig.worldEvents)
-        });
-      }
-
-      const victim = pick(living);
-      if (!victim) continue;
-
-      const killers = living.filter(p => p.userId !== victim.userId);
-      if (!killers.length) continue;
-      const killer = pick(killers);
-      const tool = pick(TOOLS);
-      const roll = Math.random();
-
-      if (roll < survivalChance) {
-        roundEvents.push({
-          type: "SURVIVAL",
-          message: fill(pick(eventConfig.survival), {
-            victim: victim.username
-          })
-        });
-        continue;
-      }
-
-      // Mark victim dead — immutable update
-      alive = alive.map(p =>
-        p.userId === victim.userId ? { ...p, alive: false } : p
-      );
-
-      roundEliminated.push(victim.username);
-      eliminationOrder.push(victim);
-
-      if (roll < funnyChance) {
-        roundEvents.push({
-          type: "FUNNY_DEATH",
-          victim: victim.username,
-          message: fill(pick(eventConfig.funny), {
-            victim: victim.username
-          })
-        });
-      } else {
-        roundEvents.push({
-          type: "ELIMINATION",
-          killer: killer.username,
-          victim: victim.username,
-          message: fill(pick(eventConfig.eliminations), {
-            victim: victim.username,
-            killer: killer.username,
-            tool
-          })
-        });
-      }
-    }
-
-    // Trailing world event at round end
-    if (
-      eventConfig.worldEvents?.length &&
-      Math.random() < worldEventChance
-    ) {
-      roundEvents.push({
-        type: "WORLD_EVENT",
-        message: pick(eventConfig.worldEvents)
-      });
-    }
-
-    // Filter to living players
-    alive = alive.filter(p => p.alive);
-
-    storyRounds.push({
-      round,
-      type: "ROUND",
-      narration,
-      events: roundEvents,
-      eliminated: roundEliminated,
-      aliveCount: alive.length
-    });
-  }
-
-  // Fixed placement: winner first, then other survivors, then reverse elimination order
-  const winner = alive[0] || eliminationOrder[eliminationOrder.length - 1];
-  const otherSurvivors = alive.filter(p => p.userId !== winner?.userId);
-  const placements = [
-    winner,
-    ...otherSurvivors,
-    ...[...eliminationOrder].reverse()
-  ].filter(Boolean);
-
-  // Match end
-  storyRounds.push({
-    round: rounds + 1,
-    type: "MATCH_END",
-    narration: null,
-    events: [{ type: "MATCH_END", message: "MATCH COMPLETE" }],
-    eliminated: [],
-    aliveCount: alive.length,
-    winner: winner?.username || null
-  });
-
-  return { storyRounds, placements, winner };
-};
-
-const goldForPlacement = (placement) => {
-  if (placement === 1) return 250;
-  if (placement === 2) return 150;
-  if (placement === 3) return 100;
-  if (placement <= 5) return 50;
-  if (placement <= 10) return 30;
-  return 20;
-};
-
-const XP_PER_MATCH = 10;
-
-module.exports = {
+const {
   generateMatch,
   goldForPlacement,
   XP_PER_MATCH,
-  xpForLevel,
   computeLevel
+} = require("../simulation/engine");
+
+const MAX = 20;
+const COUNTDOWN = 60000;
+
+// ======================================================
+// START EVENT
+// ======================================================
+
+const startEvent = async (eventId) => {
+  const event = memory[eventId];
+  if (!event || event.status !== "WAITING") return;
+
+  const needed = MAX - event.players.length;
+  if (needed > 0) event.players.push(...createBots(needed));
+
+  event.status = "STARTED";
+
+  const eventConfig = getEvent(event.eventType);
+  if (!eventConfig) {
+    console.error("INVALID EVENT TYPE:", event.eventType);
+    return;
+  }
+
+  const { storyRounds, placements, winner } = generateMatch(
+    event.players,
+    eventConfig
+  );
+
+  // Store both for compatibility
+  event.storyRounds = storyRounds || [];
+  event.feed = storyRounds || [];
+  event.winner = winner?.username || null;
+
+  event.finalResults = placements.map((player, index) => ({
+    placement: index + 1,
+    username: player.username,
+    userId: player.userId,
+    bot: player.bot,
+    goldEarned: goldForPlacement(index + 1),
+    xpEarned: XP_PER_MATCH
+  }));
+
+  event.status = "ENDED";
+
+  console.log(
+    "EVENT ENDED:", eventId,
+    "| WINNER:", winner?.username,
+    "| ROUNDS:", storyRounds?.length || 0
+  );
+
+  for (const result of event.finalResults) {
+    if (!result.bot && result.userId && result.userId.length === 24) {
+      try {
+        const user = await User.findById(result.userId);
+        if (user) {
+          user.gold += result.goldEarned;
+          user.xp += result.xpEarned;
+          user.matches += 1;
+          if (result.placement === 1) user.wins += 1;
+          user.level = computeLevel(user.xp);
+          await user.save();
+        }
+      } catch (err) {
+        console.error("REWARD ERROR:", err.message);
+      }
+    }
+  }
+
+  setTimeout(() => {
+    delete memory[eventId];
+    console.log("EVENT CLEANED:", eventId);
+  }, 600000);
 };
+
+// ======================================================
+// FEATURED EVENTS
+// ======================================================
+
+router.get("/featured", (req, res) => {
+  try {
+    const featured = getFeatured();
+    const now = Date.now();
+
+    const result = featured.map((eventConfig) => {
+      const activeLobbies = Object.values(memory).filter(
+        (lobby) =>
+          lobby.eventType === eventConfig.id &&
+          lobby.status === "WAITING"
+      );
+
+      const bestLobby = activeLobbies.sort(
+        (a, b) => b.players.length - a.players.length
+      )[0] || null;
+
+      return {
+        id: eventConfig.id,
+        name: eventConfig.name,
+        location: eventConfig.location,
+        danger: eventConfig.danger,
+        tagline: eventConfig.tagline,
+        activePlayers: activeLobbies.reduce(
+          (sum, lobby) => sum + lobby.players.length, 0
+        ),
+        activeLobbies: activeLobbies.length,
+        bestLobby: bestLobby ? {
+          eventId: bestLobby.eventId,
+          playerCount: bestLobby.players.length,
+          maxPlayers: MAX,
+          countdown: Math.max(
+            0,
+            Math.floor((bestLobby.startsAt - now) / 1000)
+          )
+        } : null
+      };
+    });
+
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ======================================================
+// GET ACTIVE LOBBIES
+// ======================================================
+
+router.get("/", (req, res) => {
+  try {
+    const now = Date.now();
+    const list = Object.values(memory)
+      .filter((event) =>
+        event.status === "WAITING" ||
+        event.status === "STARTED"
+      )
+      .map((event) => ({
+        eventId: event.eventId,
+        eventType: event.eventType,
+        theme: event.theme,
+        location: event.location,
+        danger: event.danger,
+        host: event.host,
+        playerCount: event.players.length,
+        maxPlayers: MAX,
+        countdown: Math.max(
+          0,
+          Math.floor((event.startsAt - now) / 1000)
+        ),
+        status: event.status
+      }));
+
+    res.json(list);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ======================================================
+// CREATE EVENT / AUTO JOIN
+// ======================================================
+
+router.post("/create", async (req, res) => {
+  try {
+    const { userId, username, eventType } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ error: "userId required" });
+    }
+
+    const eventConfig = getEvent(eventType || "mushin_nightmare");
+    if (!eventConfig) {
+      return res.status(400).json({ error: "Invalid event type" });
+    }
+
+    // Auto join existing waiting lobby first
+    const existingLobbies = Object.values(memory).filter(
+      (event) =>
+        event.eventType === eventConfig.id &&
+        event.status === "WAITING"
+    );
+
+    if (existingLobbies.length > 0) {
+      const lobby = existingLobbies.sort(
+        (a, b) => b.players.length - a.players.length
+      )[0];
+
+      if (!lobby.players.find((player) => player.userId === userId)) {
+        lobby.players.push({
+          userId,
+          username: username || "Survivor",
+          bot: false,
+          alive: true
+        });
+      }
+
+      if (lobby.players.length >= MAX) startEvent(lobby.eventId);
+
+      console.log("AUTO JOINED:", lobby.eventId);
+      return res.json(lobby);
+    }
+
+    // Create new lobby
+    const eventId = `event_${Date.now()}_${Math.floor(Math.random() * 9999)}`;
+
+    const event = {
+      eventId,
+      eventType: eventConfig.id,
+      theme: eventConfig.name,
+      location: eventConfig.location,
+      danger: eventConfig.danger,
+      tagline: eventConfig.tagline,
+      host: username || "Survivor",
+      status: "WAITING",
+      players: [{
+        userId,
+        username: username || "Survivor",
+        bot: false,
+        alive: true
+      }],
+      startsAt: Date.now() + COUNTDOWN,
+      storyRounds: [],
+      feed: [],
+      finalResults: null
+    };
+
+    memory[eventId] = event;
+    setTimeout(() => startEvent(eventId), COUNTDOWN);
+
+    console.log("NEW LOBBY CREATED:", eventId, "| TYPE:", eventConfig.id);
+    res.json(event);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ======================================================
+// JOIN EVENT
+// ======================================================
+
+router.post("/join", async (req, res) => {
+  try {
+    const { eventId, userId, username } = req.body;
+    const event = memory[eventId];
+
+    if (!event) return res.status(404).json({ error: "Lobby not found" });
+    if (event.status !== "WAITING") return res.status(400).json({ error: "Already started" });
+
+    if (!event.players.find((player) => player.userId === userId)) {
+      event.players.push({
+        userId,
+        username: username || "Survivor",
+        bot: false,
+        alive: true
+      });
+    }
+
+    if (event.players.length >= MAX) startEvent(eventId);
+
+    res.json(event);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ======================================================
+// EVENT STATUS
+// ======================================================
+
+router.get("/:eventId/status", (req, res) => {
+  try {
+    const event = memory[req.params.eventId];
+    if (!event) return res.status(404).json({ error: "Event not found" });
+
+    res.json({
+      eventId: event.eventId,
+      eventType: event.eventType,
+      theme: event.theme,
+      location: event.location,
+      danger: event.danger,
+      tagline: event.tagline,
+      status: event.status,
+      countdown: Math.max(
+        0,
+        Math.floor((event.startsAt - Date.now()) / 1000)
+      ),
+      players: event.players,
+      playerCount: event.players.length,
+      maxPlayers: MAX
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ======================================================
+// EVENT FEED
+// ======================================================
+
+router.get("/:eventId/feed", (req, res) => {
+  try {
+    const event = memory[req.params.eventId];
+    if (!event) return res.status(404).json({ error: "Event not found" });
+
+    const alivePlayers = event.players.filter((p) => p.alive);
+
+    res.json({
+      status: event.status,
+      storyRounds: event.storyRounds || [],
+      feed: event.feed || [],
+      finalResults: event.finalResults || null,
+      winner: event.winner || null,
+      aliveCount: alivePlayers.length
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+module.exports = router;

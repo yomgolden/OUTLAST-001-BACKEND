@@ -25,7 +25,7 @@ const FEATURED = [
   mushinNightmare,
   blackoutYaba,
   ajegunleWarzone,
-  evilforest
+  evilForest
 ];
 
 // ======================================================

@@ -268,6 +268,36 @@ const goldForPlacement = (placement) => {
 
 const XP_PER_MATCH = 10;
 
+/*
+=====================================
+RP SYSTEM
+=====================================
+*/
+
+const rpForPlacement =
+  (placement) => {
+
+    if (placement === 1)
+      return 120;
+
+    if (placement === 2)
+      return 90;
+
+    if (placement === 3)
+      return 70;
+
+    if (placement <= 5)
+      return 50;
+
+    if (placement <= 10)
+      return 30;
+
+    if (placement <= 15)
+      return 10;
+
+    return 0;
+  };
+
 module.exports = {
   generateMatch,
   goldForPlacement,
@@ -275,3 +305,4 @@ module.exports = {
   xpForLevel,
   computeLevel
 };
+

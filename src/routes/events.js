@@ -84,16 +84,37 @@ const startEvent = async (eventId) => {
   event.players.push(...bots);
 
   /*
-  =====================================
-  GENERATE MATCH
-  =====================================
-  */
+=====================================
+GET EVENT CONFIG
+=====================================
+*/
 
-  const result =
-    generateMatch(
-      event.players,
-      event.eventType
-    );
+const eventConfig =
+  getEvent(
+    event.eventType
+  );
+
+if (!eventConfig) {
+
+  console.log(
+    "INVALID EVENT CONFIG:",
+    event.eventType
+  );
+
+  return;
+}
+
+/*
+=====================================
+GENERATE MATCH
+=====================================
+*/
+
+const result =
+  generateMatch(
+    event.players,
+    eventConfig
+  );
 
   const {
     storyRounds,

@@ -1,141 +1,349 @@
 const TOOLS = [
-  "Knife", "Charm", "Juju", "Smoke",
-  "Sharp mouth", "Silence", "Connections"
+  "Knife",
+  "Charm",
+  "Juju",
+  "Smoke",
+  "Sharp mouth",
+  "Silence",
+  "Connections"
 ];
 
-const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
-const fill = (t, d) => t.replace(/\{(\w+)\}/g, (_, k) => d[k] || k);
+/*
+=====================================
+SAFE PICK
+=====================================
+*/
 
-const xpForLevel = (level) => level * level * 50;
+const pick = (arr = []) => {
 
-const computeLevel = (totalXP) => {
-  let level = 1;
-  while (totalXP >= xpForLevel(level + 1)) level++;
-  return level;
+  if (!Array.isArray(arr)) {
+
+    console.error(
+      "INVALID PICK ARRAY:",
+      arr
+    );
+
+    return null;
+  }
+
+  if (arr.length === 0) {
+
+    console.error(
+      "EMPTY PICK ARRAY"
+    );
+
+    return null;
+  }
+
+  return arr[
+    Math.floor(
+      Math.random() * arr.length
+    )
+  ];
 };
 
-const generateMatch = (players, eventConfig) => {
-  const eliminationOrder = [];
-  let alive = players.map(p => ({ ...p, alive: true }));
+/*
+=====================================
+SAFE TEMPLATE FILL
+=====================================
+*/
 
-  const minRounds = eventConfig.roundConfig?.min || 5;
-  const maxRounds = eventConfig.roundConfig?.max || 7;
+const fill = (
+  t,
+  d = {}
+) => {
+
+  if (!t) {
+    return "Unknown event";
+  }
+
+  return t.replace(
+    /\{(\w+)\}/g,
+    (_, k) => d[k] || k
+  );
+};
+
+/*
+=====================================
+XP SYSTEM
+=====================================
+*/
+
+const xpForLevel =
+  (level) =>
+    level * level * 50;
+
+const computeLevel =
+  (totalXP) => {
+
+    let level = 1;
+
+    while (
+      totalXP >=
+      xpForLevel(level + 1)
+    ) {
+      level++;
+    }
+
+    return level;
+  };
+
+/*
+=====================================
+MATCH GENERATOR
+=====================================
+*/
+
+const generateMatch = (
+  players,
+  eventConfig
+) => {
+
+  console.log(
+    "EVENT CONFIG:",
+    eventConfig?.id,
+    Object.keys(eventConfig || {})
+  );
+
+  const eliminationOrder = [];
+
+  let alive = players.map(
+    p => ({
+      ...p,
+      alive: true
+    })
+  );
+
+  const minRounds =
+    eventConfig.roundConfig?.min || 5;
+
+  const maxRounds =
+    eventConfig.roundConfig?.max || 7;
 
   const rounds =
-    Math.floor(Math.random() * (maxRounds - minRounds + 1)) + minRounds;
+    Math.floor(
+      Math.random() *
+      (maxRounds - minRounds + 1)
+    ) + minRounds;
 
   const survivalChance =
-    eventConfig.roundConfig?.survivalChance || 0.12;
+    eventConfig.roundConfig
+      ?.survivalChance || 0.12;
 
   const funnyChance =
-    eventConfig.roundConfig?.funnyChance || 0.28;
+    eventConfig.roundConfig
+      ?.funnyChance || 0.28;
 
   const worldEventChance =
-    eventConfig.roundConfig?.worldEventChance || 0.35;
+    eventConfig.roundConfig
+      ?.worldEventChance || 0.35;
 
   const storyRounds = [];
 
-  // INTRO
+  /*
+  =====================================
+  INTRO
+  =====================================
+  */
+
   if (eventConfig.intro?.length) {
+
     storyRounds.push({
+
       round: 0,
+
       type: "INTRO",
+
       narration: null,
 
-      events: eventConfig.intro.map(line => ({
-        type: "intro",
-        intensity: "medium",
-        message: line
-      })),
+      events:
+        eventConfig.intro.map(
+          line => ({
+            type: "intro",
+            intensity: "medium",
+            message: line
+          })
+        ),
 
       eliminated: [],
-      aliveCount: alive.length
+
+      aliveCount:
+        alive.length
     });
   }
 
-  for (let round = 1; round <= rounds; round++) {
-    if (alive.length <= 3) break;
+  /*
+  =====================================
+  MAIN ROUNDS
+  =====================================
+  */
+
+  for (
+    let round = 1;
+    round <= rounds;
+    round++
+  ) {
+
+    if (alive.length <= 3)
+      break;
 
     const roundEliminated = [];
 
     const roundEvents = [];
 
     console.log(
-  "DEBUG:",
-  {
-    narration: eventConfig.narration?.length,
-    worldEvents: eventConfig.worldEvents?.length,
-    survival: eventConfig.survival?.length,
-    funny: eventConfig.funny?.length,
-    eliminations: eventConfig.eliminations?.length
-  }
-);
-    
-    const narration = pick(eventConfig.narration);
+      "DEBUG:",
+      {
+        narration:
+          eventConfig.narration?.length,
 
-    const eventCount = Math.floor(Math.random() * 4) + 3;
+        worldEvents:
+          eventConfig.worldEvents?.length,
 
-    // ROUND EVENT FIRST
+        survival:
+          eventConfig.survival?.length,
+
+        funny:
+          eventConfig.funny?.length,
+
+        eliminations:
+          eventConfig.eliminations?.length
+      }
+    );
+
+    const narration =
+      pick(
+        eventConfig.narration || []
+      ) ||
+      "The silence inside the arena grows heavier.";
+
+    const eventCount =
+      Math.floor(
+        Math.random() * 4
+      ) + 3;
+
+    /*
+    =====================================
+    ROUND HEADER
+    =====================================
+    */
+
     roundEvents.push({
       type: "round",
       intensity: "low",
       message: `ROUND ${round}`
     });
 
-    // NARRATION ALWAYS SECOND
+    /*
+    =====================================
+    NARRATION
+    =====================================
+    */
+
     roundEvents.push({
       type: "narration",
       intensity: "medium",
       message: narration
     });
 
-    // OPTIONAL WORLD EVENT AFTER NARRATION
+    /*
+    =====================================
+    WORLD EVENT
+    =====================================
+    */
+
     if (
       eventConfig.worldEvents?.length &&
-      Math.random() < worldEventChance
+      Math.random() <
+        worldEventChance
     ) {
+
       roundEvents.push({
         type: "world",
         intensity: "high",
-        message: pick(eventConfig.worldEvents)
+
+        message:
+          pick(
+            eventConfig.worldEvents
+          ) ||
+          "Something moves in the darkness."
       });
     }
 
-    for (let i = 0; i < eventCount; i++) {
-      if (alive.length <= 3) break;
+    /*
+    =====================================
+    ROUND ACTIONS
+    =====================================
+    */
 
-      const living = alive.filter(p => p.alive);
+    for (
+      let i = 0;
+      i < eventCount;
+      i++
+    ) {
 
-      if (living.length < 2) break;
+      if (alive.length <= 3)
+        break;
 
-      const victim = pick(living);
+      const living =
+        alive.filter(
+          p => p.alive
+        );
 
-      if (!victim) continue;
+      if (living.length < 2)
+        break;
 
-      const killers = living.filter(
-        p => p.userId !== victim.userId
-      );
+      const victim =
+        pick(living);
 
-      if (!killers.length) continue;
+      if (!victim)
+        continue;
 
-      const killer = pick(killers);
+      const killers =
+        living.filter(
+          p =>
+            p.userId !==
+            victim.userId
+        );
 
-      const tool = pick(TOOLS);
+      if (!killers.length)
+        continue;
 
-      const roll = Math.random();
+      const killer =
+        pick(killers);
 
-      // SURVIVAL EVENT
-      if (roll < survivalChance) {
+      const tool =
+        pick(TOOLS);
+
+      const roll =
+        Math.random();
+
+      /*
+      =====================================
+      SURVIVAL EVENT
+      =====================================
+      */
+
+      if (
+        roll < survivalChance
+      ) {
+
         roundEvents.push({
+
           type: "survival",
+
           intensity: "medium",
 
-          victim: victim.username,
+          victim:
+            victim.username,
 
           message: fill(
-            pick(eventConfig.survival),
+            pick(
+              eventConfig.survival || []
+            ),
             {
-              victim: victim.username
+              victim:
+                victim.username
             }
           )
         });
@@ -143,102 +351,209 @@ const generateMatch = (players, eventConfig) => {
         continue;
       }
 
-      // KILL PLAYER
-      alive = alive.map(p =>
-        p.userId === victim.userId
-          ? { ...p, alive: false }
-          : p
+      /*
+      =====================================
+      ELIMINATE PLAYER
+      =====================================
+      */
+
+      alive = alive.map(
+        p =>
+          p.userId ===
+          victim.userId
+
+            ? {
+                ...p,
+                alive: false
+              }
+
+            : p
       );
 
-      roundEliminated.push(victim.username);
+      roundEliminated.push(
+        victim.username
+      );
 
-      eliminationOrder.push(victim);
+      eliminationOrder.push(
+        victim
+      );
 
-      // FUNNY DEATH
-      if (roll < funnyChance) {
+      /*
+      =====================================
+      FUNNY EVENT
+      =====================================
+      */
+
+      if (
+        roll < funnyChance
+      ) {
+
         roundEvents.push({
+
           type: "funny",
+
           intensity: "low",
 
-          victim: victim.username,
+          victim:
+            victim.username,
 
           message: fill(
-            pick(eventConfig.funny),
+            pick(
+              eventConfig.funny || []
+            ),
             {
-              victim: victim.username
+              victim:
+                victim.username
             }
           )
         });
       }
 
-      // NORMAL ELIMINATION
+      /*
+      =====================================
+      NORMAL ELIMINATION
+      =====================================
+      */
+
       else {
+
         roundEvents.push({
+
           type: "elimination",
+
           intensity: "high",
 
-          killer: killer.username,
-          victim: victim.username,
+          killer:
+            killer.username,
+
+          victim:
+            victim.username,
 
           message: fill(
-            pick(eventConfig.eliminations),
+            pick(
+              eventConfig.eliminations || []
+            ),
             {
-              victim: victim.username,
-              killer: killer.username,
+              victim:
+                victim.username,
+
+              killer:
+                killer.username,
+
               tool
             }
           )
         });
       }
 
-      // RANDOM WORLD EVENT BETWEEN ACTIONS
+      /*
+      =====================================
+      RANDOM WORLD EVENT
+      =====================================
+      */
+
       if (
         eventConfig.worldEvents?.length &&
-        Math.random() < worldEventChance * 0.5
+        Math.random() <
+          worldEventChance * 0.5
       ) {
+
         roundEvents.push({
+
           type: "world",
+
           intensity: "medium",
-          message: pick(eventConfig.worldEvents)
+
+          message:
+            pick(
+              eventConfig.worldEvents
+            ) ||
+            "The arena shifts again."
         });
       }
     }
 
-    // FILTER LIVING PLAYERS
-    alive = alive.filter(p => p.alive);
+    /*
+    =====================================
+    FILTER LIVING
+    =====================================
+    */
 
-    // SYSTEM EVENT AT ROUND END
+    alive =
+      alive.filter(
+        p => p.alive
+      );
+
+    /*
+    =====================================
+    ROUND END
+    =====================================
+    */
+
     roundEvents.push({
       type: "system",
       intensity: "low",
-      message: `${alive.length} survivors remain.`
+      message:
+        `${alive.length} survivors remain.`
     });
 
     storyRounds.push({
+
       round,
+
       type: "ROUND",
+
       narration,
+
       events: roundEvents,
-      eliminated: roundEliminated,
-      aliveCount: alive.length
+
+      eliminated:
+        roundEliminated,
+
+      aliveCount:
+        alive.length
     });
   }
 
-  // PLACEMENTS
+  /*
+  =====================================
+  PLACEMENTS
+  =====================================
+  */
+
   const winner =
-    alive[0] || eliminationOrder[eliminationOrder.length - 1];
+    alive[0] ||
+    eliminationOrder[
+      eliminationOrder.length - 1
+    ];
 
   const otherSurvivors =
-    alive.filter(p => p.userId !== winner?.userId);
+    alive.filter(
+      p =>
+        p.userId !==
+        winner?.userId
+    );
 
   const placements = [
+
     winner,
+
     ...otherSurvivors,
-    ...[...eliminationOrder].reverse()
+
+    ...[
+      ...eliminationOrder
+    ].reverse()
+
   ].filter(Boolean);
 
-  // MATCH END
+  /*
+  =====================================
+  MATCH END
+  =====================================
+  */
+
   storyRounds.push({
+
     round: rounds + 1,
 
     type: "MATCH_END",
@@ -249,15 +564,18 @@ const generateMatch = (players, eventConfig) => {
       {
         type: "system",
         intensity: "medium",
-        message: "MATCH COMPLETE"
+        message:
+          "MATCH COMPLETE"
       }
     ],
 
     eliminated: [],
 
-    aliveCount: alive.length,
+    aliveCount:
+      alive.length,
 
-    winner: winner?.username || null
+    winner:
+      winner?.username || null
   });
 
   return {
@@ -267,15 +585,32 @@ const generateMatch = (players, eventConfig) => {
   };
 };
 
-const goldForPlacement = (placement) => {
-  if (placement === 1) return 250;
-  if (placement === 2) return 150;
-  if (placement === 3) return 100;
-  if (placement <= 5) return 50;
-  if (placement <= 10) return 30;
+/*
+=====================================
+REWARDS
+=====================================
+*/
 
-  return 20;
-};
+const goldForPlacement =
+  (placement) => {
+
+    if (placement === 1)
+      return 250;
+
+    if (placement === 2)
+      return 150;
+
+    if (placement === 3)
+      return 100;
+
+    if (placement <= 5)
+      return 50;
+
+    if (placement <= 10)
+      return 30;
+
+    return 20;
+  };
 
 const XP_PER_MATCH = 10;
 

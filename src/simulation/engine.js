@@ -303,6 +303,6 @@ module.exports = {
   goldForPlacement,
   XP_PER_MATCH,
   xpForLevel,
-  computeLevel
+  computeLevel,
+  rpForPlacement
 };
-

@@ -96,6 +96,26 @@ const userSchema = new mongoose.Schema({
 
 });
 
+/*
+=====================================
+LEADERBOARD INDEXES
+=====================================
+*/
+
+userSchema.index({
+  weeklyRp: -1
+});
+
+userSchema.index({
+  seasonRp: -1
+});
+
+module.exports =
+  mongoose.model(
+    "User",
+    userSchema
+  );
+
 module.exports =
   mongoose.model(
     "User",

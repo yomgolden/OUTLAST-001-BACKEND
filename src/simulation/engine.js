@@ -60,6 +60,17 @@ const generateMatch = (players, eventConfig) => {
 
     const roundEvents = [];
 
+    console.log(
+  "DEBUG:",
+  {
+    narration: eventConfig.narration?.length,
+    worldEvents: eventConfig.worldEvents?.length,
+    survival: eventConfig.survival?.length,
+    funny: eventConfig.funny?.length,
+    eliminations: eventConfig.eliminations?.length
+  }
+);
+    
     const narration = pick(eventConfig.narration);
 
     const eventCount = Math.floor(Math.random() * 4) + 3;

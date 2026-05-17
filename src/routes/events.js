@@ -13,35 +13,112 @@ const {
   generateMatch,
   goldForPlacement,
   XP_PER_MATCH,
-  computeLevel
+  computeLevel,
+  rpForPlacement
 } = require("../simulation/engine");
 
 const MAX = 20;
 const COUNTDOWN = 60000;
 
-// ======================================================
-// START EVENT
-// ======================================================
+/*
+=====================================
+RANK SYSTEM
+=====================================
+*/
 
-const startEvent = async (eventId) => {
-  const event = memory[eventId];
-  if (!event || event.status !== "WAITING") return;
+const getRankFromRp =
+  (rp) => {
 
-  const needed = MAX - event.players.length;
-  if (needed > 0) event.players.push(...createBots(needed));
+    if (rp >= 10000)
+      return "Legend";
 
-  event.status = "STARTED";
+    if (rp >= 7000)
+      return "Grandmaster";
 
-  const eventConfig = getEvent(event.eventType);
-  if (!eventConfig) {
-    console.error("INVALID EVENT TYPE:", event.eventType);
-    return;
-  }
+    if (rp >= 4500)
+      return "Master";
 
-  const { storyRounds, placements, winner } = generateMatch(
-    event.players,
-    eventConfig
+    if (rp >= 2500)
+      return "Slayer";
+
+    if (rp >= 1200)
+      return "Hunter";
+
+    if (rp >= 500)
+      return "Survivor";
+
+    return "Rookie";
+  };
+
+/*
+=====================================
+BASIC REWARDS
+=====================================
+*/
+
+user.gold +=
+  result.goldEarned;
+
+user.xp +=
+  result.xpEarned;
+
+user.matches += 1;
+
+/*
+=====================================
+WINS
+=====================================
+*/
+
+if (result.placement === 1) {
+
+  user.wins += 1;
+
+  user.weeklyWins += 1;
+
+  user.seasonWins += 1;
+}
+
+/*
+=====================================
+RP SYSTEM
+=====================================
+*/
+
+const earnedRp =
+  rpForPlacement(
+    result.placement
   );
+
+user.weeklyRp +=
+  earnedRp;
+
+user.seasonRp +=
+  earnedRp;
+
+/*
+=====================================
+RANK UPDATE
+=====================================
+*/
+
+user.rank =
+  getRankFromRp(
+    user.seasonRp
+  );
+
+/*
+=====================================
+LEVEL SYSTEM
+=====================================
+*/
+
+user.level =
+  computeLevel(
+    user.xp
+  );
+
+await user.save();
 
   // Store both for compatibility
   event.storyRounds = storyRounds || [];
@@ -55,6 +132,10 @@ const startEvent = async (eventId) => {
     bot: player.bot,
     goldEarned: goldForPlacement(index + 1),
     xpEarned: XP_PER_MATCH
+    rpEarned:
+  rpForPlacement(
+    index + 1
+  )
   }));
 
   event.status = "ENDED";
